@@ -13,7 +13,7 @@ splashScreen =
         , "Your mission is to create words by stealing as many "
         , "words as possible."
         , ""
-        , "Press any key to begin..."
+        , "Press enter to begin..."
         ]
 
 main :: IO ()
