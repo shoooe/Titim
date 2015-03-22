@@ -7,7 +7,7 @@ module Titim.Grid
     ) where
 
 import System.Random (randomRIO)
-import Data.Vector (Vector, (!?))
+import Data.Vector (Vector, (!?), (//))
 import Data.List (intersperse)
 import qualified Data.Vector as V
 
@@ -23,12 +23,14 @@ toIndex (w, _) (x, y) = y * w + x
 onTop :: Position -> Position
 onTop (x, y) = (x, y - 1)
 
-data Entity = Letter Char | Air
+data Entity = Letter Char | Air | ToSave | NotSaved
 data Grid = Grid Size (Vector Entity)
 
 charFor :: Entity -> Char
 charFor (Letter c) = c
 charFor Air = ' '
+charFor ToSave = '^'
+charFor NotSaved = '_'
 
 instance Show Grid where
     show (Grid (w, h) entities) =
@@ -40,7 +42,10 @@ instance Show Grid where
             [] entities
 
 startGrid :: Size -> Grid
-startGrid (w, h) = Grid (w, h) (V.replicate (w * h) Air)
+startGrid (w, h) = 
+    let emptyMatrix = V.replicate (w * h) Air
+        updates = map (\i -> (i, ToSave)) [((w - 1) * h)..(w * h - 1)] in
+    Grid (w, h) (emptyMatrix // updates)
 
 makeStep :: Grid -> IO Grid
 makeStep = spawnLetters . moveDown
@@ -67,7 +72,13 @@ getCell (Grid size entities) pos =
 moveDown :: Grid -> Grid
 moveDown grid@(Grid size entities) =
     let stealFromTop :: Grid -> Int -> Entity -> Entity
-        stealFromTop grid i e = getCell grid (onTop (toPosition size i))
+        stealFromTop grid i e = 
+            let topCell = getCell grid (onTop (toPosition size i)) in
+            case (topCell, e) of
+                (Letter _, ToSave)  -> NotSaved
+                (_, ToSave)         -> ToSave
+                (_, NotSaved)       -> NotSaved
+                _                   -> topCell
         entities' = V.imap (stealFromTop grid) entities in
     Grid size entities'
 
