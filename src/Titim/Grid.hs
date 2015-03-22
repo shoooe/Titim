@@ -4,10 +4,11 @@ module Titim.Grid
     , startGrid
     , makeStep
     , hitWithWord
+    , allDed
     ) where
 
 import System.Random (randomRIO)
-import Data.Vector (Vector, (!?), (//))
+import Data.Vector (Vector, (!?), (//), (!))
 import Data.List (intersperse)
 import qualified Data.Vector as V
 
@@ -23,20 +24,21 @@ toIndex (w, _) (x, y) = y * w + x
 onTop :: Position -> Position
 onTop (x, y) = (x, y - 1)
 
-data Entity = Letter Char | Air | ToSave | NotSaved
+data Entity = Letter Char | Air | ToSave | NotSaved deriving (Eq)
 data Grid = Grid Size (Vector Entity)
 
 charFor :: Entity -> Char
 charFor (Letter c) = c
 charFor Air = ' '
-charFor ToSave = '^'
+charFor ToSave = '⌂'
 charFor NotSaved = '_'
 
 instance Show Grid where
     show (Grid (w, h) entities) =
+        concat (replicate w " _") ++ "\n" ++
         V.ifoldr 
             (\i e str ->
-                if ((i + 1) `mod` w) == 0
+                if (((i + 1) `mod` w) == 0)
                     then ' ' : charFor e : '\n' : str
                     else ' ' : charFor e : str)
             [] entities
@@ -62,6 +64,13 @@ hitWithWord word (Grid size entities) =
                     then e
                     else Air)
             entities
+
+allDed :: Grid -> Bool
+allDed (Grid (w, h) entities) =
+    foldl 
+        (\b i -> (entities ! i) == NotSaved && b)
+        True
+        [((w - 1) * h)..(w * h - 1)]
 
 getCell :: Grid -> Position -> Entity
 getCell (Grid size entities) pos =
@@ -90,8 +99,8 @@ getRandomLetter = do
 
 maybeSpawn :: IO Entity
 maybeSpawn = do
-    x <- (randomRIO (0, 1) :: IO Int)
-    if x == 1 
+    x <- (randomRIO (0, 2) :: IO Int)
+    if x > 0 
         then getRandomLetter
         else return Air
 
