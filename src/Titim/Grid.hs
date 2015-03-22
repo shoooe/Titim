@@ -3,78 +3,89 @@ module Titim.Grid
     , Size
     , startGrid
     , makeStep
+    , hitWithWord
     ) where
 
 import System.Random (randomRIO)
-import Titim.Util (efficientNub)
+import Data.Vector (Vector, (!?))
+import Data.List (intersperse)
+import qualified Data.Vector as V
 
-
--- The size represents the size in which letters
--- can be positioned on without destroying the grid.
 type Size = (Int, Int)
-
--- The position is defined with regards
--- to a coordinate system that has 0 on the top
--- left corner of the grid, and x going right and
--- y going down.
 type Position = (Int, Int)
 
--- An entity is just a letter and a position
--- in the grid.
-type Entity = (Position, Char)
+toPosition :: Size -> Int -> Position
+toPosition (w, h) i = (i `mod` w, i `div` w)
 
--- A grid is not destroyed if it can contain
--- all the letters. Once the letters spill out,
--- the grid is destroyed.
-data Grid ent = Grid Size [ent] | Destroyed
+toIndex :: Size -> Position -> Int
+toIndex (w, _) (x, y) = y * w + x
 
-instance Functor Grid where
-    fmap fn (Grid size entities) =
-        Grid size (fmap fn entities)
-    fmap _ Destroyed = Destroyed
+onTop :: Position -> Position
+onTop (x, y) = (x, y - 1)
 
--- The grid starts with no entities..
-startGrid :: Size -> Grid ent
-startGrid size = Grid size []
+data Entity = Letter Char | Air
+data Grid = Grid Size (Vector Entity)
 
--- ..which are filled at every step..
-makeStep :: Grid ent -> IO (Grid ent)
-makeStep = spawnLetters
-         . moveLettersDown
+charFor :: Entity -> Char
+charFor (Letter c) = c
+charFor Air = ' '
 
--- ..and maybe destroyed.
-hitWithWord :: String -> Grid ent -> Grid ent
+instance Show Grid where
+    show (Grid (w, h) entities) =
+        V.ifoldr 
+            (\i e str ->
+                if ((i + 1) `mod` w) == 0
+                    then charFor e : '\n' : str
+                    else charFor e : str)
+            [] entities
+
+startGrid :: Size -> Grid
+startGrid (w, h) = Grid (w, h) (V.replicate (w * h) Air)
+
+makeStep :: Grid -> IO Grid
+makeStep = spawnLetters . moveDown
+
+hitWithWord :: String -> Grid -> Grid
 hitWithWord word (Grid size entities) =
-    Grid size (filter (not . (`elem` word) . snd) entities)
+    let fn :: String -> Entity -> Bool
+        fn word (Letter c) = not (c `elem` word) 
+        fn _ _ = True in
+    Grid size $ 
+        V.map
+            (\e -> 
+                if fn word e
+                    then e
+                    else Air)
+            entities
 
-generatePosition :: Size -> IO Position
-generatePosition (width, _) = do
-    x <- randomRIO (0, width - 1)
-    return (x, 0)
+getCell :: Grid -> Position -> Entity
+getCell (Grid size entities) pos =
+    case entities !? (toIndex size pos) of
+        Nothing -> Air
+        Just x -> x
 
-generatePositions :: Size -> IO [Position]
-generatePositions (width, height) = do
-    positions <- 
-        forM [1..(width / 2)] 
-            (const . generatePosition (width, height))
-    return . efficientNub $ positions
+moveDown :: Grid -> Grid
+moveDown grid@(Grid size entities) =
+    let stealFromTop :: Grid -> Int -> Entity -> Entity
+        stealFromTop grid i e = getCell grid (onTop (toPosition size i))
+        entities' = V.imap (stealFromTop grid) entities in
+    Grid size entities'
 
-generateLetter :: IO Char
-generateLetter = do
+getRandomLetter :: IO Entity
+getRandomLetter = do
     let alphabet = ['a'..'z']
     i <- randomRIO (0, length alphabet - 1)
-    return $ alphabet !! i
+    return $ Letter (alphabet !! i)
+
+maybeSpawn :: IO Entity
+maybeSpawn = do
+    x <- (randomRIO (0, 1) :: IO Int)
+    if x == 1 
+        then getRandomLetter
+        else return Air
 
 spawnLetters :: Grid -> IO Grid
 spawnLetters (Grid (width, height) entities) = do
-    positions <- generatePositions
-    newEntities <- mapM (\p -> do
-        l <- generateLetter
-        return (p, l))
-    return $ Grid (width, height) (newEntities ++ entities)
-
--- At every step the letters are moved down.
-moveLettersDown :: Grid -> Grid
-moveLettersDown =
-    let fn ((x, y), e) = ((x, y + 1), e) in
-    fmap fn
+    let indices = V.enumFromN 0 width
+    updates <- V.mapM (\i -> maybeSpawn >>= return . ((,) i)) indices
+    return $ Grid (width, height) (V.update entities updates)
