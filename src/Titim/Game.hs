@@ -36,15 +36,15 @@ askWord words usedWords =
                 return False) getLine
 
 isGameOver :: Game -> Bool
-isGameOver (Game _ grid _ _) = allDed grid
+isGameOver (Game _ grid _ _) = manyDed grid
 
 gameOverScreen :: Game -> IO ()
-gameOverScreen game@(Game score _ _ _) = do
-    clearScreen
-    putStrLn "\n--------------"
-    putStrLn "Game over!"
-    putStrLn $ "Your score: " ++ show score
-    putStrLn "--------------\n"
+gameOverScreen game@(Game score _ _ _) =
+    showScreen
+        [ "More than half of the houses have been destroyed!"
+        , "You failed your mission with a score of " ++ show score ++ " points."
+        , ":c"
+        ]
 
 gameStep :: Game -> IO Game
 gameStep game@(Game score grid words usedWords) = do

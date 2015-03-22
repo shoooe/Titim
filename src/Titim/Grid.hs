@@ -4,7 +4,7 @@ module Titim.Grid
     , startGrid
     , makeStep
     , hitWithWord
-    , allDed
+    , manyDed
     ) where
 
 import System.Random (randomRIO)
@@ -34,7 +34,7 @@ charFor ToSave = '⌂'
 charFor NotSaved = '_'
 
 instance Show Grid where
-    show (Grid (w, h) entities) =
+    show grid@(Grid (w, h) entities) =
         concat (replicate w " _") ++ "\n" ++
         V.ifoldr 
             (\i e str ->
@@ -43,11 +43,14 @@ instance Show Grid where
                     else ' ' : charFor e : str)
             [] entities
 
+lastRowIndices :: Size -> [Int]
+lastRowIndices (w, h) = [(w * (h - 1))..(w * h - 1)]
+
 startGrid :: Size -> Grid
-startGrid (w, h) = 
+startGrid size@(w, h) = 
     let emptyMatrix = V.replicate (w * h) Air
-        updates = map (\i -> (i, ToSave)) [((w - 1) * h)..(w * h - 1)] in
-    Grid (w, h) (emptyMatrix // updates)
+        updates = map (\i -> (i, ToSave)) (lastRowIndices size) in
+    Grid size (emptyMatrix // updates)
 
 makeStep :: Grid -> IO Grid
 makeStep = spawnLetters . moveDown
@@ -65,12 +68,19 @@ hitWithWord word (Grid size entities) =
                     else Air)
             entities
 
-allDed :: Grid -> Bool
-allDed (Grid (w, h) entities) =
+numDed :: Grid -> Int
+numDed (Grid size entities) =
     foldl 
-        (\b i -> (entities ! i) == NotSaved && b)
-        True
-        [((w - 1) * h)..(w * h - 1)]
+        (\b i -> 
+            if (entities ! i) == NotSaved 
+                then b + 1
+                else b)
+        0
+        (lastRowIndices size)
+
+manyDed :: Grid -> Bool
+manyDed grid@(Grid (w, _) _) =
+    numDed grid > w `div` 2
 
 getCell :: Grid -> Position -> Entity
 getCell (Grid size entities) pos =

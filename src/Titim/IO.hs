@@ -20,3 +20,10 @@ askLabelOver :: String -> IO ()
 askLabelOver str = do
     putStr $ "\o33[1A\r\o33[K" ++ str
     hFlush stdout
+
+showScreen :: [String] -> IO ()
+showScreen ls= do
+    clearScreen
+    putStrLn "\n--------------"
+    putStr $ unlines ls
+    putStrLn "--------------\n"
