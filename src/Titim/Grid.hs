@@ -37,8 +37,8 @@ instance Show Grid where
         V.ifoldr 
             (\i e str ->
                 if ((i + 1) `mod` w) == 0
-                    then charFor e : '\n' : str
-                    else charFor e : str)
+                    then ' ' : charFor e : '\n' : str
+                    else ' ' : charFor e : str)
             [] entities
 
 startGrid :: Size -> Grid
