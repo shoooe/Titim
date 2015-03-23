@@ -4,10 +4,10 @@ This is a simple text based game about saving a village from falling letters.
 
 Rules are as follows:
 
-    - at every turn you enter a word
-    - you can't use words more than once
-    - every letter of an entered word is removed from the sky
-    - if more than half of the houses are crushed you lose
+ - at every turn you enter a word
+ - you can't use words more than once
+ - every letter of an entered word is removed from the sky
+ - if more than half of the houses are crushed you lose
 
 The dictionary has its limits. If you find a better one you can change it, and make a pull request.
 
