@@ -16,6 +16,8 @@ In order to build the executable and run it you need to download the Haskell pla
 call the following commands:
 
 ```
+git clone https://github.com/Jefffrey/Titim.git
+cd Titim
 cabal update
 cabal sandbox init
 cabal configure
