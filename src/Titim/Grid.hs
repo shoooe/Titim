@@ -5,6 +5,7 @@ module Titim.Grid
     , makeStep
     , hitWithWord
     , manyDed
+    , getHits
     ) where
 
 import System.Random (randomRIO)
@@ -24,7 +25,7 @@ toIndex (w, _) (x, y) = y * w + x
 onTop :: Position -> Position
 onTop (x, y) = (x, y - 1)
 
-data Entity = Letter Char | Air | ToSave | NotSaved deriving (Eq)
+data Entity = Letter Char | Air | ToSave | NotSaved | Hit Char deriving (Eq)
 data Grid = Grid Size (Vector Entity)
 
 charFor :: Entity -> Char
@@ -32,6 +33,7 @@ charFor (Letter c) = c
 charFor Air = ' '
 charFor ToSave = '⌂'
 charFor NotSaved = '_'
+charFor (Hit _) = '.'
 
 instance Show Grid where
     show grid@(Grid (w, h) entities) =
@@ -57,16 +59,21 @@ makeStep = spawnLetters . moveDown
 
 hitWithWord :: String -> Grid -> Grid
 hitWithWord word (Grid size entities) =
-    let fn :: String -> Entity -> Bool
-        fn word (Letter c) = not (c `elem` word) 
-        fn _ _ = True in
-    Grid size $ 
-        V.map
-            (\e -> 
-                if fn word e
-                    then e
-                    else Air)
-            entities
+    let process :: String -> Entity -> Entity
+        process word l@(Letter c) = 
+            if c `elem` word
+                then Hit c
+                else l
+        process _ e = e
+        entities' = V.map (process word) entities  in
+    Grid size entities'
+
+getHits :: Grid -> [Char]
+getHits (Grid _ entities) =
+    V.foldl (\cs e ->
+        case e of
+            Hit c -> c : cs
+            _ -> cs) [] entities
 
 numDed :: Grid -> Int
 numDed (Grid size entities) =
@@ -97,6 +104,7 @@ moveDown grid@(Grid size entities) =
                 (Letter _, ToSave)  -> NotSaved
                 (_, ToSave)         -> ToSave
                 (_, NotSaved)       -> NotSaved
+                (Hit _, _)          -> Air
                 _                   -> topCell
         entities' = V.imap (stealFromTop grid) entities in
     Grid size entities'

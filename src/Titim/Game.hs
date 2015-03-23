@@ -6,7 +6,13 @@ import qualified Data.Set as Set
 import Titim.Grid
 import Titim.IO
 
-data Game = Game Int Grid (Set String) (Set String)
+data Game = 
+    Game 
+        { getScore :: Int
+        , getGrid :: Grid
+        , getWords :: Set String
+        , getUsedWords :: Set String
+        }
 
 instance Show Game where
     show (Game score grid _ _) =
@@ -17,7 +23,7 @@ instance Show Game where
 
 startGame :: Size -> IO Game
 startGame size = do
-    initialGrid <- makeStep $ startGrid size
+    initialGrid <- makeStep (startGrid size)
     dictionary <- readFile "dictionary.txt"
     let words = Set.fromList . lines $ dictionary
     let usedWords = Set.empty
@@ -46,14 +52,19 @@ gameOverScreen game@(Game score _ _ _) =
         , ":c"
         ]
 
+scoreFor :: Grid -> Int
+scoreFor = sum . map (\_ -> 10) . getHits
+
 gameStep :: Game -> IO Game
 gameStep game@(Game score grid words usedWords) = do
     clearScreen
+    grid' <- makeStep grid
     print game
     askLabel "Give me a word: "
     word <- askWord words usedWords
-    grid' <- makeStep $ hitWithWord word grid
+    let grid'' = hitWithWord word grid'
+    let score' = score + scoreFor grid''
     return $ 
-        Game score grid' 
+        Game score' grid''
             (Set.delete word words) 
             (Set.insert word usedWords)
