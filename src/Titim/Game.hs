@@ -23,11 +23,10 @@ instance Show Game where
 
 startGame :: Size -> IO Game
 startGame size = do
-    initialGrid <- makeStep (startGrid size)
     dictionary <- readFile "dictionary.txt"
     let words = Set.fromList . lines $ dictionary
     let usedWords = Set.empty
-    return $ Game 0 initialGrid words usedWords
+    return $ Game 0 (startGrid size) words usedWords
 
 askWord :: Set String -> Set String -> IO String
 askWord words usedWords = 
@@ -59,7 +58,7 @@ gameStep :: Game -> IO Game
 gameStep game@(Game score grid words usedWords) = do
     clearScreen
     grid' <- makeStep grid
-    print game
+    print $ game { getGrid = grid' }
     askLabel "Give me a word: "
     word <- askWord words usedWords
     let grid'' = hitWithWord word grid'
