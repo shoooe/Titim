@@ -1,10 +1,15 @@
 ##Titim
 
 This is a simple text based game about saving a village from falling letters.
-You start with a clean sky, and at every turn you are able to write a word that you haven't already
-used, and every distinct letter in the word, will be removed from the sky.
-If more than half of the houses get crushed by letters you lose.
 
+Rules are as follows:
+
+    - at every turn you enter a word
+    - you can't use words more than once
+    - every letter of an entered word is removed from the sky
+    - if more than half of the houses are crushed you lose
+
+The dictionary has its limits. If you find a better one you can change it, and make a pull request.
 
 <p align="center">
     <img src="http://i.imgur.com/FrUM2yh.png" alt="Example of the game on a terminal window"/>
