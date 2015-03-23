@@ -25,3 +25,6 @@ cabal install --only-dependencies
 cabal build
 cabal run -- <width> <height>
 ```
+
+Feel free to change `dictionary.txt` with any dictionary you want, as long as the separator for each word is `\n`.
+Size is configurable with command line arguments.
