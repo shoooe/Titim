@@ -11,14 +11,13 @@ module Titim.Grid
 
 import System.Random (randomRIO)
 import Data.Vector (Vector, (!?), (//), (!))
-import Data.List (intersperse)
 import qualified Data.Vector as V
 
 type Size = (Int, Int)
 type Position = (Int, Int)
 
 toPosition :: Size -> Int -> Position
-toPosition (w, h) i = (i `mod` w, i `div` w)
+toPosition (w, _) i = (i `mod` w, i `div` w)
 
 toIndex :: Size -> Position -> Int
 toIndex (w, _) (x, y) = y * w + x
@@ -37,7 +36,7 @@ charFor NotSaved = '_'
 charFor (Hit _) = '.'
 
 instance Show Grid where
-    show grid@(Grid (w, h) entities) =
+    show (Grid (w, _) entities) =
         concat (replicate w " _") ++ "\n" ++
         V.ifoldr 
             (\i e str ->
@@ -61,8 +60,8 @@ makeStep = spawnLetters . moveDown
 hitWithWord :: String -> Grid -> Grid
 hitWithWord word (Grid size entities) =
     let process :: String -> Entity -> Entity
-        process word l@(Letter c) = 
-            if c `elem` word
+        process w l@(Letter c) = 
+            if c `elem` w
                 then Hit c
                 else l
         process _ e = e
@@ -109,8 +108,8 @@ getCell (Grid size entities) pos =
 moveDown :: Grid -> Grid
 moveDown grid@(Grid size entities) =
     let stealFromTop :: Grid -> Int -> Entity -> Entity
-        stealFromTop grid i e = 
-            let topCell = getCell grid (onTop (toPosition size i)) in
+        stealFromTop g i e = 
+            let topCell = getCell g (onTop (toPosition size i)) in
             case (topCell, e) of
                 (Letter _, ToSave)  -> NotSaved
                 (_, ToSave)         -> ToSave

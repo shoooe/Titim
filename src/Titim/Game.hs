@@ -21,17 +21,17 @@ instance Show Game where
             , show grid
             ]
 
-startGame :: Size -> IO Game
-startGame size = do
-    dictionary <- readFile "dictionary.txt"
-    let words = Set.fromList . lines $ dictionary
+startGame :: FilePath -> Size -> IO Game
+startGame dict (w, h) = do
+    dictionary <- readFile dict
+    let wordz = Set.fromList . lines $ dictionary
     let usedWords = Set.empty
-    return $ Game 0 (startGrid size) words usedWords
+    return $ Game 0 (startGrid (w, h)) wordz usedWords
 
 askWord :: Set String -> Set String -> IO String
-askWord words usedWords = 
+askWord wordz usedWords = 
     askUntil (\word ->
-        case (word `Set.member` words, word `Set.member` usedWords) of
+        case (word `Set.member` wordz, word `Set.member` usedWords) of
             (True, _)       -> return True
             (False, True)   -> do
                 askLabelOver "Used already, give me another: "
@@ -44,7 +44,7 @@ isGameOver :: Game -> Bool
 isGameOver (Game _ grid _ _) = manyDed grid
 
 gameOverScreen :: Game -> IO ()
-gameOverScreen game@(Game score _ _ _) =
+gameOverScreen (Game score _ _ _) =
     showScreen
         [ "More than half of the houses have been destroyed!"
         , "You failed your mission with a score of " ++ show score ++ " points."
@@ -52,15 +52,15 @@ gameOverScreen game@(Game score _ _ _) =
         ]
 
 gameStep :: Game -> IO Game
-gameStep game@(Game score grid words usedWords) = do
+gameStep game@(Game score grid wordz usedWords) = do
     clearScreen
     grid' <- makeStep grid
     print $ game { getGrid = grid' }
     askLabel "Give me a word: "
-    word <- askWord words usedWords
+    word <- askWord wordz usedWords
     let grid'' = hitWithWord word grid'
     let score' = score + scoreFor grid''
     return $ 
         Game score' grid''
-            (Set.delete word words) 
+            (Set.delete word wordz) 
             (Set.insert word usedWords)

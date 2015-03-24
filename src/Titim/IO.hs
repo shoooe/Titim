@@ -3,6 +3,8 @@ module Titim.IO where
 import System.IO
 import Text.Read (readMaybe)
 import Titim.Grid (Size)
+import System.Environment (getArgs)
+import Control.Monad (liftM)
 
 askUntil :: (Monad m) => (a -> m Bool) -> m a -> m a
 askUntil predicate action = do
@@ -45,16 +47,23 @@ splashScreen (width, height) =
 helpScreen :: IO ()
 helpScreen =
     showScreen
-        [ "Titim 0.1"
-        , "A game about falling letters"
+        [ "Titim"
+        , "Usage: titim WIDTH HEIGHT"
         , ""
-        , "titim :: Game"
-        , "titim :: Width -> Height -> Game"
+        , "The score bonus is inversely proportional to "
+        , "the height of the grid, and directly proportional to "
+        , "its width."
         ]
 
-getSize :: (Int, Int) -> [String] -> (Int, Int)
-getSize def [widthStr, heightStr] =
+getSize :: [String] -> Maybe (Int, Int)
+getSize [widthStr, heightStr] =
     case (readMaybe widthStr, readMaybe heightStr) of
-        (Just width, Just height) -> (width, height)
-        _                         -> def
-getSize def _ = def
+        (Just width, Just height) -> 
+            if width > 0 && height > 0 -- counting the house
+                then Just (width, height + 1) -- we had 1 for the houses
+                else Nothing
+        _ -> Nothing
+getSize _ = Nothing
+
+askSize :: IO (Maybe (Int, Int))
+askSize = liftM getSize getArgs 
