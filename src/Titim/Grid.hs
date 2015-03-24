@@ -6,6 +6,7 @@ module Titim.Grid
     , hitWithWord
     , manyDed
     , getHits
+    , scoreFor
     ) where
 
 import System.Random (randomRIO)
@@ -74,6 +75,16 @@ getHits (Grid _ entities) =
         case e of
             Hit c -> c : cs
             _ -> cs) [] entities
+
+letterValue :: Char -> Int
+letterValue _ = 10
+    
+normalizeScore :: Size -> Int -> Int
+normalizeScore (w, h) i = (i * w) `div` h
+
+scoreFor :: Grid -> Int
+scoreFor grid@(Grid size _) = 
+    normalizeScore size . sum . map letterValue . getHits $ grid
 
 numDed :: Grid -> Int
 numDed (Grid size entities) =

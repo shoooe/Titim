@@ -51,9 +51,6 @@ gameOverScreen game@(Game score _ _ _) =
         , ":c"
         ]
 
-scoreFor :: Grid -> Int
-scoreFor = sum . map (\_ -> 10) . getHits
-
 gameStep :: Game -> IO Game
 gameStep game@(Game score grid words usedWords) = do
     clearScreen
