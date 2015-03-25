@@ -50,6 +50,7 @@ isGameOver (Game _ grid _ _) =
 -- Hits the game with the given word, updating the 
 -- corresponding sets and the grid itself.
 hitGame :: String -> Game -> Game
+hitGame [] game = game
 hitGame word (Game score grid ws uws) =
     let (s, grid')  = hitGrid word grid
         score'      = score + s
