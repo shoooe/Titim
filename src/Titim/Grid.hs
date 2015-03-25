@@ -1,5 +1,6 @@
 module Titim.Grid
     ( Grid
+    , getGridSize
     , makeGrid
     , updateGrid
     , hitGrid
@@ -25,6 +26,10 @@ instance Show Grid where
             . map (intercalate " ")
             . map (map show)
             . Mat.toLists $ matrix
+
+getGridSize :: Grid -> (Int, Int)
+getGridSize (Grid matrix) =
+    (Mat.nrows matrix, Mat.ncols matrix)
 
 -- Starts the grid with a row of generators on top
 -- and a row of houses on the bottom.

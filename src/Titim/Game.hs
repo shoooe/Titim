@@ -14,10 +14,19 @@ data Game =
         , getGameUsedWords :: Set String
         }
 
+countUsedWords :: Game -> Int
+countUsedWords = Set.size . getGameUsedWords
+
+countWords :: Game -> Int
+countWords = Set.size . getGameWords
+
 instance Show Game where
     show (Game score grid _ _) =
+        let (rs, cs) = getGridSize grid in
         concat 
-            ["Score: ", show score, "\n\n"
+            ["Score: ", show score
+            , " | ", show rs, "x", show cs
+            , "\n\n"
             , show grid
             ]
 

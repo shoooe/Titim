@@ -35,10 +35,9 @@ showScreen ls= do
 
 -- Screen shown at the beginning of the game.
 splashScreen :: (Int, Int) -> IO ()
-splashScreen (rows, cols) =
+splashScreen _ =
     showScreen
-        [ "A bunch of letters are falling from a "
-            ++ show rows ++ "x" ++ show cols ++ " sky, "
+        [ "A bunch of letters are falling from the sky, "
         , "threatening the village below."
         , "Your mission is to create words by stealing as many "
         , "letters as possible."
@@ -92,10 +91,11 @@ askWord game = repeatUntil action getLine
 gameOverScreen :: Game -> IO ()
 gameOverScreen game =
     let score = getGameScore game
+        nwords = countUsedWords game
     in showScreen
-        [ "More than half of the houses have been destroyed!"
-        , "You failed your mission with a score of " ++ show score ++ " points."
-        , ":c"
+        [ "Too many houses were destroyed!"
+        , "Score: " ++ show score ++ " points"
+        , "Used: " ++ show nwords ++ " words"
         ]
 
 -- Procedure to perform at each step of the game.

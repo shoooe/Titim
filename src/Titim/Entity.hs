@@ -1,6 +1,6 @@
 module Titim.Entity where
 
-import           System.Random (randomRIO)
+import System.Random (randomRIO)
 
 -- All the entities that can appear
 -- on the game grid.
