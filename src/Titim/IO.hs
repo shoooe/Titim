@@ -2,29 +2,30 @@ module Titim.IO where
 
 import System.IO
 import Text.Read (readMaybe)
-import Titim.Grid (Size)
 import System.Environment (getArgs)
 import Control.Monad (liftM)
+import Titim.Game
+import Titim.Util
 
-askUntil :: (Monad m) => (a -> m Bool) -> m a -> m a
-askUntil predicate action = do
-    x <- action
-    b <- predicate x
-    if b then return x else askUntil predicate action
-
+-- Clears the output screen, by removing all lines
+-- and setting the cursor to the top left corner.
 clearScreen :: IO ()
 clearScreen = putStr "\o33c"
 
+-- Simply puts a lable on the screen.
 askLabel :: String -> IO ()
 askLabel label = do
     putStr label
     hFlush stdout
 
+-- Goes back one line and ask with a label
+-- again.
 askLabelOver :: String -> IO ()
 askLabelOver str = do
     putStr $ "\o33[1A\r\o33[K" ++ str
     hFlush stdout
 
+-- Utility used to show a screen of text.
 showScreen :: [String] -> IO ()
 showScreen ls= do
     clearScreen
@@ -32,11 +33,12 @@ showScreen ls= do
     putStr $ unlines ls
     putStrLn "--------------\n"
 
-splashScreen :: Size -> IO ()
-splashScreen (width, height) =
+-- Screen shown at the beginning of the game.
+splashScreen :: (Int, Int) -> IO ()
+splashScreen (rows, cols) =
     showScreen
         [ "A bunch of letters are falling from a "
-            ++ show width ++ "x" ++ show height ++ " sky, "
+            ++ show rows ++ "x" ++ show cols ++ " sky, "
         , "threatening the village below."
         , "Your mission is to create words by stealing as many "
         , "letters as possible."
@@ -44,26 +46,81 @@ splashScreen (width, height) =
         , "Press enter to begin..."
         ]
 
+-- Help screen, shown when the user does something
+-- silly.
 helpScreen :: IO ()
 helpScreen =
     showScreen
         [ "Titim"
-        , "Usage: titim WIDTH HEIGHT"
+        , "Usage: titim ROWS COLUMNS"
         , ""
         , "The score bonus is inversely proportional to "
         , "the height of the grid, and directly proportional to "
         , "its width."
         ]
 
+-- Parses the size out of a bunch of strings.
 getSize :: [String] -> Maybe (Int, Int)
-getSize [widthStr, heightStr] =
-    case (readMaybe widthStr, readMaybe heightStr) of
-        (Just width, Just height) -> 
-            if width > 0 && height > 0 -- counting the house
-                then Just (width, height + 1) -- we had 1 for the houses
+getSize [rowsStr, colsStr] =
+    case (readMaybe rowsStr, readMaybe colsStr) of
+        (Just rows, Just cols) -> 
+            if rows > 0 && cols > 0 -- counting the house
+                then Just (rows + 2, cols) -- we add 1 for the houses and generators
                 else Nothing
         _ -> Nothing
 getSize _ = Nothing
 
+-- Asks for a valid size, returns `Nothing`
+-- if the size could not be parsed.
 askSize :: IO (Maybe (Int, Int))
-askSize = liftM getSize getArgs 
+askSize = liftM getSize getArgs
+
+-- Asks for a word until it's valid for the game.
+askWord :: Game -> IO String
+askWord game = repeatUntil action getLine
+    where action word =
+              case validateWord word game of
+                  Left err -> do
+                      askLabelOver $ errorMessage err ++ ", give me another: "
+                      return False
+                  Right _ -> return True
+          errorMessage AlreadyUsed = "Already used"
+          errorMessage NotAWord = "Not even a word"
+
+-- Screen showns when the game is over and the player
+-- effectively lost.
+gameOverScreen :: Game -> IO ()
+gameOverScreen game =
+    let score = getGameScore game
+    in showScreen
+        [ "More than half of the houses have been destroyed!"
+        , "You failed your mission with a score of " ++ show score ++ " points."
+        , ":c"
+        ]
+
+-- Procedure to perform at each step of the game.
+gameStep :: Game -> IO Game
+gameStep game = do
+    clearScreen
+    print game
+    askLabel "Give me a word: "
+    word <- askWord game
+    updateGame . hitGame word $ game
+
+-- Repeats the steps until the game is in a game over
+-- status.
+gameLoop :: Game -> IO Game
+gameLoop = buildUntil isGameOver gameStep
+
+-- Initializes the game and runs it.
+runGame :: IO ()
+runGame = do
+    maybeSize <- askSize
+    case maybeSize of
+        Nothing -> helpScreen
+        Just size -> do
+            splashScreen size
+            _ <- getLine
+            game <- makeGame "/usr/share/dict/words" size
+            finalGame <- gameLoop game 
+            gameOverScreen finalGame

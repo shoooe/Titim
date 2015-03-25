@@ -1,133 +1,107 @@
 module Titim.Grid
     ( Grid
-    , Size
-    , startGrid
-    , makeStep
-    , hitWithWord
-    , manyDed
+    , makeGrid
+    , updateGrid
+    , hitGrid
+    , countEntity
+    , module Titim.Entity
     ) where
 
-import System.Random (randomRIO)
-import Data.Vector (Vector, (!?), (//), (!))
-import qualified Data.Vector as V
+import           Data.Matrix (Matrix)
+import           Titim.Entity
+import           Data.List (intercalate)
+import           Data.Foldable (foldr)
+import           Data.Traversable (mapM)
+import           Prelude hiding (foldr, mapM)
+import qualified Data.Matrix as Mat
 
-type Size = (Int, Int)
-type Position = (Int, Int)
-
-toPosition :: Size -> Int -> Position
-toPosition (w, _) i = (i `mod` w, i `div` w)
-
-toIndex :: Size -> Position -> Int
-toIndex (w, _) (x, y) = y * w + x
-
-onTop :: Position -> Position
-onTop (x, y) = (x, y - 1)
-
-data Entity = Letter Char | Air | ToSave | NotSaved | Hit Char deriving (Eq)
-data Grid = Grid Size (Vector Entity)
-
-charFor :: Entity -> Char
-charFor (Letter c) = c
-charFor Air = ' '
-charFor ToSave = '⌂'
-charFor NotSaved = '_'
-charFor (Hit _) = '.'
+-- This is a new type so that we can
+-- define an instance of `Show`.
+newtype Grid = Grid (Matrix Entity)
 
 instance Show Grid where
-    show (Grid (w, _) entities) =
-        concat (replicate w " _") ++ "\n" ++
-        V.ifoldr 
-            (\i e str ->
-                if (((i + 1) `mod` w) == 0)
-                    then ' ' : charFor e : '\n' : str
-                    else ' ' : charFor e : str)
-            [] entities
+    show (Grid matrix) =
+        unlines
+            . map (intercalate " ")
+            . map (map show)
+            . Mat.toLists $ matrix
 
-lastRowIndices :: Size -> [Int]
-lastRowIndices (w, h) = [(w * (h - 1))..(w * h - 1)]
+-- Starts the grid with a row of generators on top
+-- and a row of houses on the bottom.
+makeGrid :: (Int, Int) -> Grid
+makeGrid (rows, cols) =
+    Grid $ Mat.matrix rows cols gen
+    where gen (i, _)
+              | i == 1    = Generator
+              | i == rows = House
+              | otherwise = Air
 
-startGrid :: Size -> Grid
-startGrid size@(w, h) = 
-    let emptyMatrix = V.replicate (w * h) Air
-        updates = map (\i -> (i, ToSave)) (lastRowIndices size) in
-    Grid size (emptyMatrix // updates)
+-- Makes 1 logic step for the grid.
+updateGrid :: Grid -> IO Grid
+updateGrid grid@(Grid matrix) = do
+    matrix' <- imapM (moveDownCell grid) matrix
+    return $ Grid matrix'
 
-makeStep :: Grid -> IO Grid
-makeStep = spawnLetters . moveDown
+-- Hits the entire grid with the word, transforming
+-- letters into hits and returning the total score for the hit.
+hitGrid :: String -> Grid -> (Int, Grid)
+hitGrid word (Grid matrix) =
+    let matrix' = fmap (hitEntity word) matrix
+        score   = foldr (addScoreFor word) 0 matrix
+        size    = (Mat.nrows matrix, Mat.ncols matrix)
+    in  (normalizeScore size score, Grid matrix')
 
-hitEntityWithWord :: String -> Entity -> Entity
-hitEntityWithWord word (Letter c) = 
-    if c `elem` word
-        then Hit c
-        else Letter c
-hitEntityWithWord _ e = e
+-- Counts the number of entities in the grid that are
+-- equal to the one given.
+countEntity :: Entity -> Grid -> Int
+countEntity s (Grid matrix) =
+    foldr (\e -> if e == s then (+ 1) else id) 0 matrix
 
-letterValue :: Char -> Int
-letterValue _ = 10
-    
-normalizeScore :: Size -> Int -> Int
-normalizeScore (w, h) i = (i * w) `div` h
-
+-- Takes a word and an entity and a counter and returns
+-- the new counter based on the hitting of the letter.
 addScoreFor :: String -> Entity -> Int -> Int
 addScoreFor word (Letter c) =
     if c `elem` word
-        then (+ letterValue c)
+        then (+ scoreForLetter c)
         else id
 addScoreFor _ _ = id
 
-hitWithWord :: String -> Grid -> (Int, Grid)
-hitWithWord word (Grid size entities) =
-    let entities' = V.map (hitEntityWithWord word) entities
-        score = V.foldr (addScoreFor word) 0 entities in
-    (normalizeScore size score, Grid size entities')
+-- The score depends on the size of the grid.
+normalizeScore :: (Int, Int) -> Int -> Int
+normalizeScore (r, c) i = (i * c) `div` r
 
-numDed :: Grid -> Int
-numDed (Grid size entities) =
-    foldl 
-        (\b i -> 
-            if (entities ! i) == NotSaved 
-                then b + 1
-                else b)
-        0 (lastRowIndices size)
+-- Performs a row major map with index.
+imap :: ((Int, Int) -> a -> b) -> Matrix a -> Matrix b
+imap fn matrix =
+    let (r, c) = (Mat.nrows matrix, Mat.ncols matrix)
+        perElem (y, x) = fn (y, x) (Mat.getElem y x matrix)
+    in  fmap perElem $ Mat.matrix r c id
 
-manyDed :: Grid -> Bool
-manyDed grid@(Grid (w, _) _) =
-    numDed grid > w `div` 2
+-- Performs a row major map with index over a
+-- monadic context.
+imapM :: (Monad m) => ((Int, Int) -> a -> m b) -> Matrix a -> m (Matrix b)
+imapM fn matrix =
+    let (r, c) = (Mat.nrows matrix, Mat.ncols matrix)
+        perElem (y, x) = fn (y, x) (Mat.getElem y x matrix)
+    in  mapM perElem $ Mat.matrix r c id
 
-getCell :: Grid -> Position -> Entity
-getCell (Grid size entities) pos =
-    case entities !? (toIndex size pos) of
+-- Gets the element if within the bounds of the matrix
+-- otherwise it returns `Air`.
+elemGet :: Grid -> (Int, Int) -> Entity
+elemGet (Grid matrix) (r, c) =
+    case Mat.safeGet r c matrix of
         Nothing -> Air
-        Just x -> x
+        Just x  -> x
 
-moveDown :: Grid -> Grid
-moveDown grid@(Grid size entities) =
-    let stealFromTop :: Grid -> Int -> Entity -> Entity
-        stealFromTop g i e = 
-            let topCell = getCell g (onTop (toPosition size i)) in
-            case (topCell, e) of
-                (Letter _, ToSave)  -> NotSaved
-                (_, ToSave)         -> ToSave
-                (_, NotSaved)       -> NotSaved
-                _                   -> topCell
-        entities' = V.imap (stealFromTop grid) entities in
-    Grid size entities'
-
-getRandomLetter :: IO Entity
-getRandomLetter = do
-    let alphabet = ['a'..'z']
-    i <- randomRIO (0, length alphabet - 1)
-    return $ Letter (alphabet !! i)
-
-maybeSpawn :: IO Entity
-maybeSpawn = do
-    x <- (randomRIO (0, 2) :: IO Int)
-    if x > 0 
-        then getRandomLetter
-        else return Air
-
-spawnLetters :: Grid -> IO Grid
-spawnLetters (Grid (width, height) entities) = do
-    let indices = V.enumFromN 0 width
-    updates <- V.mapM (\i -> maybeSpawn >>= return . ((,) i)) indices
-    return $ Grid (width, height) (V.update entities updates)
+-- Performs the move down logic on a single
+-- cell of the grid.
+moveDownCell :: Grid -> (Int, Int) -> Entity -> IO Entity
+moveDownCell grid (r, c) e =
+    let northElem = elemGet grid (r - 1, c) in
+    case (northElem, e) of
+        (Letter _, House)   -> return Debris
+        (_, House)          -> return House
+        (_, Generator)      -> return Generator
+        (_, Debris)         -> return Debris
+        (Generator, _)      -> tryGenLetter
+        _                   -> return northElem

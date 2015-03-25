@@ -1,17 +1,17 @@
 module Titim.Game where
 
-import Data.Set (Set)
+import           Titim.Grid
+import           Data.Set (Set)
 import qualified Data.Set as Set
 
-import Titim.Grid
-import Titim.IO
-
+-- Data structure that represents the entire
+-- game being played.
 data Game = 
     Game 
-        { getScore :: Int
-        , getGrid :: Grid
-        , getWords :: Set String
-        , getUsedWords :: Set String
+        { getGameScore :: Int
+        , getGameGrid :: Grid
+        , getGameWords :: Set String
+        , getGameUsedWords :: Set String
         }
 
 instance Show Game where
@@ -21,46 +21,46 @@ instance Show Game where
             , show grid
             ]
 
-startGame :: FilePath -> Size -> IO Game
-startGame dict (w, h) = do
+-- Represents a word validation error for the game.
+data ValidationError = AlreadyUsed | NotAWord deriving (Eq)
+
+-- Generates a game with the given dictionary and
+-- size of the grid.
+makeGame :: FilePath -> (Int, Int) -> IO Game
+makeGame dict size = do
     dictionary <- readFile dict
     let wordz = Set.fromList . lines $ dictionary
     let usedWords = Set.empty
-    return $ Game 0 (startGrid (w, h)) wordz usedWords
+    return $ Game 0 (makeGrid size) wordz usedWords
 
-askWord :: Set String -> Set String -> IO String
-askWord wordz usedWords = 
-    askUntil (\word ->
-        case (word `Set.member` wordz, word `Set.member` usedWords) of
-            (True, _)       -> return True
-            (False, True)   -> do
-                askLabelOver "Used already, give me another: "
-                return False
-            (False, False) -> do
-                askLabelOver "Not a word, give me another: "
-                return False) getLine
-
+-- Checks if there are more debris than houses.
 isGameOver :: Game -> Bool
-isGameOver (Game _ grid _ _) = manyDed grid
+isGameOver (Game _ grid _ _) = 
+    countEntity Debris grid > countEntity House grid
 
-gameOverScreen :: Game -> IO ()
-gameOverScreen (Game score _ _ _) =
-    showScreen
-        [ "More than half of the houses have been destroyed!"
-        , "You failed your mission with a score of " ++ show score ++ " points."
-        , ":c"
-        ]
+-- Hits the game with the given word, updating the 
+-- corresponding sets and the grid itself.
+hitGame :: String -> Game -> Game
+hitGame word (Game score grid ws uws) =
+    let (s, grid')  = hitGrid word grid
+        score'      = score + s
+        ws'         = Set.delete word ws
+        uws'        = Set.insert word uws
+    in  Game score' grid' ws' uws'
 
-gameStep :: Game -> IO Game
-gameStep game@(Game score grid wordz usedWords) = do
-    clearScreen
-    print $ game
-    askLabel "Give me a word: "
-    word <- askWord wordz usedWords
-    let (currentScore, grid') = hitWithWord word grid
-    let score' = score + currentScore
-    grid'' <- makeStep grid'
-    return $ 
-        Game score' grid''
-            (Set.delete word wordz) 
-            (Set.insert word usedWords)
+-- Updating a game just forwards the update to
+-- the grid.
+updateGame :: Game -> IO Game
+updateGame (Game score grid ws uws) = do
+    grid' <- updateGrid grid
+    return $ Game score grid' ws uws
+
+-- Checks if a word can be used and if it can't
+-- it returns a proper error message.
+validateWord :: String -> Game -> Either ValidationError String
+validateWord [] _ = Right []
+validateWord word (Game _ _ ws uws) =
+    case (Set.member word ws, Set.member word uws) of
+        (True, _) -> Right word
+        (False, True) -> Left AlreadyUsed
+        (False, False) -> Left NotAWord
