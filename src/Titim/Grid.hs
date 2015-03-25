@@ -5,8 +5,6 @@ module Titim.Grid
     , makeStep
     , hitWithWord
     , manyDed
-    , getHits
-    , scoreFor
     ) where
 
 import System.Random (randomRIO)
@@ -57,23 +55,12 @@ startGrid size@(w, h) =
 makeStep :: Grid -> IO Grid
 makeStep = spawnLetters . moveDown
 
-hitWithWord :: String -> Grid -> Grid
-hitWithWord word (Grid size entities) =
-    let process :: String -> Entity -> Entity
-        process w l@(Letter c) = 
-            if c `elem` w
-                then Hit c
-                else l
-        process _ e = e
-        entities' = V.map (process word) entities  in
-    Grid size entities'
-
-getHits :: Grid -> [Char]
-getHits (Grid _ entities) =
-    V.foldl (\cs e ->
-        case e of
-            Hit c -> c : cs
-            _ -> cs) [] entities
+hitEntityWithWord :: String -> Entity -> Entity
+hitEntityWithWord word (Letter c) = 
+    if c `elem` word
+        then Hit c
+        else Letter c
+hitEntityWithWord _ e = e
 
 letterValue :: Char -> Int
 letterValue _ = 10
@@ -81,9 +68,18 @@ letterValue _ = 10
 normalizeScore :: Size -> Int -> Int
 normalizeScore (w, h) i = (i * w) `div` h
 
-scoreFor :: Grid -> Int
-scoreFor grid@(Grid size _) = 
-    normalizeScore size . sum . map letterValue . getHits $ grid
+addScoreFor :: String -> Entity -> Int -> Int
+addScoreFor word (Letter c) =
+    if c `elem` word
+        then (+ letterValue c)
+        else id
+addScoreFor _ _ = id
+
+hitWithWord :: String -> Grid -> (Int, Grid)
+hitWithWord word (Grid size entities) =
+    let entities' = V.map (hitEntityWithWord word) entities
+        score = V.foldr (addScoreFor word) 0 entities in
+    (normalizeScore size score, Grid size entities')
 
 numDed :: Grid -> Int
 numDed (Grid size entities) =
@@ -92,8 +88,7 @@ numDed (Grid size entities) =
             if (entities ! i) == NotSaved 
                 then b + 1
                 else b)
-        0
-        (lastRowIndices size)
+        0 (lastRowIndices size)
 
 manyDed :: Grid -> Bool
 manyDed grid@(Grid (w, _) _) =
@@ -114,7 +109,6 @@ moveDown grid@(Grid size entities) =
                 (Letter _, ToSave)  -> NotSaved
                 (_, ToSave)         -> ToSave
                 (_, NotSaved)       -> NotSaved
-                (Hit _, _)          -> Air
                 _                   -> topCell
         entities' = V.imap (stealFromTop grid) entities in
     Grid size entities'

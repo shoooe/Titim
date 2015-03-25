@@ -58,8 +58,8 @@ gameStep game@(Game score grid wordz usedWords) = do
     print $ game { getGrid = grid' }
     askLabel "Give me a word: "
     word <- askWord wordz usedWords
-    let grid'' = hitWithWord word grid'
-    let score' = score + scoreFor grid''
+    let (currentScore, grid'') = hitWithWord word grid'
+    let score' = score + currentScore
     return $ 
         Game score' grid''
             (Set.delete word wordz) 
