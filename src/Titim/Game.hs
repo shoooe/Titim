@@ -54,12 +54,12 @@ gameOverScreen (Game score _ _ _) =
 gameStep :: Game -> IO Game
 gameStep game@(Game score grid wordz usedWords) = do
     clearScreen
-    grid' <- makeStep grid
-    print $ game { getGrid = grid' }
+    print $ game
     askLabel "Give me a word: "
     word <- askWord wordz usedWords
-    let (currentScore, grid'') = hitWithWord word grid'
+    let (currentScore, grid') = hitWithWord word grid
     let score' = score + currentScore
+    grid'' <- makeStep grid'
     return $ 
         Game score' grid''
             (Set.delete word wordz) 
