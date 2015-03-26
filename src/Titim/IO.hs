@@ -113,14 +113,10 @@ gameLoop :: Game -> IO Game
 gameLoop = buildUntil isGameOver gameStep
 
 -- Initializes the game and runs it.
-runGame :: IO ()
-runGame = do
-    maybeSize <- askSize
-    case maybeSize of
-        Nothing -> helpScreen
-        Just size -> do
-            splashScreen size
-            _ <- getLine
-            game <- makeGame "/usr/share/dict/words" size
-            finalGame <- gameLoop game 
-            gameOverScreen finalGame
+runGame :: (Int, Int) -> FilePath -> IO ()
+runGame size dict = do
+    splashScreen size
+    _ <- getLine
+    game <- makeGame dict size
+    finalGame <- gameLoop game 
+    gameOverScreen finalGame

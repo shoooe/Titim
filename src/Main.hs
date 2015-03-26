@@ -1,6 +1,6 @@
 module Main where
 
-import Titim.IO (runGame)
+import Titim.Interpreter (interpret)
 
 main :: IO ()
-main = runGame
+main = interpret
