@@ -3,14 +3,17 @@ module Titim.IO where
 import System.IO
 import Text.Read (readMaybe)
 import System.Environment (getArgs)
-import Control.Monad (liftM)
+import Control.Monad (liftM, forM_)
+import Control.Concurrent (threadDelay)
 import Titim.Game
 import Titim.Util
 
 -- Clears the output screen, by removing all lines
 -- and setting the cursor to the top left corner.
 clearScreen :: IO ()
-clearScreen = putStr "\o33c"
+clearScreen = do
+    putStr "\o33c"
+    hFlush stdout
 
 -- Simply puts a lable on the screen.
 askLabel :: String -> IO ()
@@ -86,13 +89,32 @@ askWord game = repeatUntil action getLine
           errorMessage AlreadyUsed = "Already used"
           errorMessage NotAWord = "Not even a word"
 
+-- Shows a flashing game with the given
+-- settings.
+flashingGame :: Game -> IO ()
+flashingGame game = do
+    let delay = 300000
+    forM_ ([1..7] :: [Int]) $ \i -> do
+        if odd i
+        then do
+            clearScreen
+            threadDelay (delay `div` 2)
+        else do
+            clearScreen
+            print game
+            threadDelay delay
+
 -- Screen showns when the game is over and the player
 -- effectively lost.
 gameOverScreen :: Game -> IO ()
-gameOverScreen game =
+gameOverScreen game = do
+    flashingGame game
+    print game
+    askLabel "Press enter to continue..."
+    _ <- getLine
     let score = getGameScore game
-        nwords = countUsedWords game
-    in showScreen
+    let nwords = countUsedWords game
+    showScreen
         [ "Too many houses were destroyed!"
         , "Score: " ++ show score ++ " points"
         , "Used: " ++ show nwords ++ " words"
