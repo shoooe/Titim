@@ -1,4 +1,4 @@
-##Titim
+## Titim
 
 This is a simple text based game about saving a village from falling letters.
 
@@ -13,7 +13,7 @@ Rules are as follows:
     <img src="http://i.imgur.com/FrUM2yh.png" alt="Example of the game on a terminal window"/>
 </p>
 
-####Installation
+#### Installation
 
 In order to build the executable and run it you need to download the Haskell platform and then
 call the following commands:
